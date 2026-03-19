@@ -277,7 +277,7 @@ def build_Q_matrix(transitions_df):
     return Q_matrix
 
 
-def create_master_transitions_ledger():
+def create_epl_transitions_ledger():
     import warnings
 
     # turn off warnings for cleaner output
@@ -290,6 +290,44 @@ def create_master_transitions_ledger():
         zip(all_season_matches["match_id"], all_season_matches["home_team"])
     )
     print(f"Found {len(match_data)} total matches in the season.")
+
+    all_transitions_league = []
+
+    # 3. Process the entire league
+    for idx, (m_id, h_team) in enumerate(match_data):
+        if idx % 10 == 0:
+            print(f"Processing Match {idx}/{len(match_data)}...")
+
+        df_match = process_match_generalised(match_id=m_id, home_team=h_team)
+        all_transitions_league.append(df_match)
+
+    # 4. Concatenate into the Ultimate Master Ledger
+    master_transitions = pd.concat(all_transitions_league, ignore_index=True)
+
+    return master_transitions
+
+
+def create_messi_data_transitions_ledger():
+    import warnings
+
+    # turn off warnings for cleaner output
+    warnings.filterwarnings("ignore")
+
+    free_comps = sb.competitions()
+
+    la_liga_seasons = free_comps[free_comps["competition_id"] == 11][
+        "season_id"
+    ].tolist()
+    print(f"Found {len(la_liga_seasons)} La Liga seasons to process.")
+
+    match_data = []
+    for s_id in la_liga_seasons:
+        season_matches = sb.matches(competition_id=11, season_id=s_id)
+        season_match_data = list(
+            zip(season_matches["match_id"], season_matches["home_team"])
+        )
+        match_data.extend(season_match_data)
+    print(f"Found {len(match_data)} total matches across all seasons.")
 
     all_transitions_league = []
 
