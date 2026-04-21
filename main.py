@@ -174,36 +174,39 @@ def process_match_generalised(match_id, home_team):
         game_states["y_bin"] = pd.cut(
             game_states["y"], bins=y_edges, labels=False, include_lowest=True
         )
-        game_states["zone_id"] = (game_states["x_bin"] * 4) + game_states["y_bin"]
+        game_states["zone_id"] = (
+            (game_states["x_bin"] * 4) + game_states["y_bin"]
+        ).astype(int)
 
         # 5. Possession State
         game_states["P"] = (game_states["possession_team"] == home_team).astype(int)
 
-        # 6. Goal Difference State
-        is_goal = (game_states["type"] == "Shot") & (
-            game_states["shot_outcome"] == "Goal"
-        )
-        # return 1 (goal) if the target team scored, otherwise give it to the other team
-        game_states["home_goal"] = np.where(
-            is_goal & (game_states["team"] == home_team), 1, 0
-        )
-        game_states["away_goal"] = np.where(
-            is_goal & (game_states["team"] != home_team), 1, 0
-        )
-        # clip goal diff to between -2 and 2 to reduce matrix sparsity
-        game_states["delta_G"] = (
-            game_states["home_goal"].cumsum() - game_states["away_goal"].cumsum()
-        ).clip(-2, 2)
-
-        # 7. Construct State Vector
+        # 6. Construct State Vector
         game_states["state_id"] = (
-            "G:"
-            + game_states["delta_G"].astype(str)
-            + "_P:"
+            "P:"
             + game_states["P"].astype(str)
             + "_Z:"
             + game_states["zone_id"].astype(str)
         )
+
+        # 7. Inject Absorbing States (Goals)
+        is_goal = (game_states["type"] == "Shot") & (
+            game_states["shot_outcome"] == "Goal"
+        )
+
+        is_out_of_play = (game_states["pass_outcome"] == "Out") | (
+            (game_states["shot_outcome"].isin(["Off T", "Post", "Saved", "Wayward"]))
+            | (game_states["type"] == "Clearance")
+        )
+
+        # Override state_id purely for these terminal events
+        game_states.loc[is_goal & (game_states["team"] == home_team), "state_id"] = (
+            "HOME_GOAL"
+        )
+        game_states.loc[is_goal & (game_states["team"] != home_team), "state_id"] = (
+            "AWAY_GOAL"
+        )
+        game_states.loc[is_out_of_play, "state_id"] = "OUT_OF_PLAY"
 
         # 8. Calculate Transitions and Holding Times
         game_states["next_state_id"] = game_states.groupby("period")["state_id"].shift(
@@ -216,7 +219,14 @@ def process_match_generalised(match_id, home_team):
             game_states["next_time"] - game_states["period_seconds"]
         )
 
-        # 9. Return the clean transition ledger
+        # 9. Enforce True Absorbing (Terminal) States
+        # trap universes that go out of bounds
+        terminal_states = ["HOME_GOAL", "AWAY_GOAL", "OUT_OF_PLAY"]
+        game_states.loc[
+            game_states["state_id"].isin(terminal_states), "next_state_id"
+        ] = np.nan
+
+        # 10. Return the clean transition ledger
         transitions = game_states.dropna(
             subset=["next_state_id", "holding_time"]
         ).copy()
