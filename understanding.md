@@ -1,0 +1,3 @@
+Removing goal difference in state IDs made the Q matrix less sparse, which increases statistical significance if a given state does arise. This is because with goal difference included in the Q matrix, the total number of occurrences (sample size) of a given state may be low, and so the variance is likely to be higher, making Monte Carlo simulations less representative of the reality. The outcomes are more stable and closer to the real life outcome distribution. With more samples to look at, the model has a better understanding of the true distribution of possible outcomes, and so it can better predict the transition probabilities of going from the current state to another.
+
+We're thinking only about open play xT.

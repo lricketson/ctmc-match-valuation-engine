@@ -6,7 +6,7 @@ def simulate_step_gpu(current_states_idx, Q):
     """
     Simulates the next jump for an entire BATCH of matches simultaneously.
     current_states_idx: A 1D tensor of length N (e.g., 10,000) containing the current state indices.
-    Q: The 240x240 transition matrix tensor.
+    Q: The 51x51 transition matrix tensor.
     """
     batch_size = current_states_idx.shape[0]
 
